@@ -25,18 +25,13 @@ type App struct {
 	name  string
 }
 
-// GlobalType maps some lua vm types to
-// golang for use in creating global objects
-type GlobalType lua.LValue
-
 // Global is a simple object used to create
 // a lua object (const, table etc) that can
 // be injected into the app config for use
 // within the lua script
-type Global struct {
-	Key   string
-	Type  GlobalType
-	Value interface{}
+type Global interface {
+	GetKey() string
+	GetValue() lua.LValue
 }
 
 // NewAppConfig creates a lua vm session and app config
@@ -57,9 +52,9 @@ func NewAppConfig(name, filename string, globals ...Global) (*App, error) {
 	l.PreloadModule("http", gluahttp.NewHttpModule(&http.Client{}).Loader)
 
 	l.SetGlobal(name, l.NewTable())
-	// for _, global := range globals {
-	// 	// iterate and create globals
-	// }
+	for _, global := range globals {
+		l.SetGlobal(global.GetKey(), global.GetValue())
+	}
 
 	if err := l.DoFile(filename); err != nil {
 		panic(err)
