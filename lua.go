@@ -1,4 +1,4 @@
-package main
+package boost
 
 import (
 	"errors"
@@ -18,29 +18,35 @@ import (
 	gjson "layeh.com/gopher-json"
 )
 
+// App is used to maintain the underlying
+// state for the lua vm
 type App struct {
+	state *lua.LState
+	name  string
 }
 
-func NewAppConfig(name, filename string) (*App, error) {
-	return nil, nil
+// GlobalType maps some lua vm types to
+// golang for use in creating global objects
+type GlobalType lua.LValue
+
+// Global is a simple object used to create
+// a lua object (const, table etc) that can
+// be injected into the app config for use
+// within the lua script
+type Global struct {
+	Key   string
+	Type  GlobalType
+	Value interface{}
 }
 
-func (a *App) SetGlobal(key string, val interface{}) error {
-	return nil
-}
-
-func (a *App) ParseFunction(method string, mapping interface{}) error {
-	return nil
-}
-
-func ParseByApp(appname, methodname, filename string, mapping interface{}) error {
-	if reflect.ValueOf(mapping).Kind() != reflect.Ptr {
-		return errors.New("input mapping must be a pointer")
-	}
-
+// NewAppConfig creates a lua vm session and app config
+// using an application name (used to create the root table),
+// filename/path and some globals (optional). The passed file
+// may have any extension as long as it is a valid lua script.
+// You may prefer to use a .lua extension for automatic syntax
+// highlighting in editors.
+func NewAppConfig(name, filename string, globals ...Global) (*App, error) {
 	l := lua.NewState()
-	defer l.Close()
-
 	l.PreloadModule("re", gluare.Loader)
 	l.PreloadModule("yaml", gluayaml.Loader)
 
@@ -50,8 +56,52 @@ func ParseByApp(appname, methodname, filename string, mapping interface{}) error
 	gjson.Preload(l)
 	l.PreloadModule("http", gluahttp.NewHttpModule(&http.Client{}).Loader)
 
-	l.SetGlobal(appname, l.NewTable())
-	configObj := fmt.Sprintf("__boost__%s_%s__boost__", appname, methodname)
+	l.SetGlobal(name, l.NewTable())
+	// for _, global := range globals {
+	// 	// iterate and create globals
+	// }
+
+	if err := l.DoFile(filename); err != nil {
+		panic(err)
+	}
+
+	return &App{
+		state: l,
+		name:  name,
+	}, nil
+}
+
+// Cleanup closes and cleans up the lua VM, this must be
+// called when all interaction with the config app is complete
+func (a *App) Cleanup() {
+	a.state.Close()
+}
+
+// GetGlobal retrieves a global object from the lua vm and
+// maps it to the provided mapping pointer. This seems to only
+// work when the object matching the provided key is a table.
+func (a *App) GetGlobal(key string, mapping interface{}) error {
+	if reflect.ValueOf(mapping).Kind() != reflect.Ptr {
+		return errors.New("input mapping must be a pointer")
+	}
+
+	if err := gluamapper.Map(a.state.GetGlobal(key).(*lua.LTable), mapping); err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+// ParseFunction runs the method by provided method name, app name and maps
+// the result to the provided 'mapping' pointer. The mapping must be a
+// ptr of a struct or map type.
+func (a *App) ParseFunction(method string, mapping interface{}) error {
+	l := a.state
+
+	if reflect.ValueOf(mapping).Kind() != reflect.Ptr {
+		return errors.New("input mapping must be a pointer")
+	}
+
+	configObj := fmt.Sprintf("__boost__%s_%s__boost__", a.name, method)
 	l.SetGlobal(configObj, l.NewTable())
 
 	mappingType := reflect.ValueOf(mapping).Type().Elem()
@@ -65,12 +115,8 @@ func ParseByApp(appname, methodname, filename string, mapping interface{}) error
 		}
 	}
 
-	if err := l.DoFile(filename); err != nil {
-		panic(err)
-	}
-
 	if err := l.CallByParam(lua.P{
-		Fn:      l.GetGlobal(appname).(*lua.LTable).RawGetString(methodname),
+		Fn:      l.GetGlobal(a.name).(*lua.LTable).RawGetString(method),
 		NRet:    0,
 		Protect: true,
 	}, l.GetGlobal(configObj)); err != nil {
@@ -82,22 +128,4 @@ func ParseByApp(appname, methodname, filename string, mapping interface{}) error
 	}
 
 	return nil
-}
-
-type Example struct {
-	Favorites struct {
-		Fruits  []string
-		Color   string
-		Animals bool
-	}
-}
-
-func main() {
-	var example Example
-	err := ParseByApp("MyApp", "configure", "example.conf", &example)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("returned", example)
 }
