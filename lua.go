@@ -4,18 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
-	"strings"
 
+	"github.com/BixData/gluasocket"
 	"github.com/ailncode/gluaxmlpath"
 	"github.com/cjoudrey/gluahttp"
 	"github.com/cjoudrey/gluaurl"
 	"github.com/kohkimakimoto/gluayaml"
-
+	"github.com/rs/zerolog"
+	log "github.com/rs/zerolog/log"
+	"github.com/serenize/snaker"
 	"github.com/yuin/gluamapper"
 	"github.com/yuin/gluare"
 	lua "github.com/yuin/gopher-lua"
 	gjson "layeh.com/gopher-json"
+	lfs "layeh.com/gopher-lfs"
 )
 
 // App is used to maintain the underlying
@@ -23,6 +27,7 @@ import (
 type App struct {
 	state *lua.LState
 	name  string
+	print func(data string)
 }
 
 // Global is a simple object used to create
@@ -40,35 +45,70 @@ type Global interface {
 // may have any extension as long as it is a valid lua script.
 // You may prefer to use a .lua extension for automatic syntax
 // highlighting in editors.
-func NewAppConfig(name, filename string, globals ...Global) (*App, error) {
+func NewAppConfig(name, filename string, enableLogging bool, globals ...Global) (*App, error) {
+	print := func(data string) {
+
+	}
+
+	if enableLogging {
+		logger := log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		print = func(data string) {
+			logger.Debug().Msg(data)
+		}
+	}
+
+	print("creating new VM state")
 	l := lua.NewState()
+
+	print("adding module: 'lfs'")
+	lfs.Preload(l)
+
+	print("adding module: 'socket'")
+	gluasocket.Preload(l)
+
+	print("adding module: 're (regex)'")
 	l.PreloadModule("re", gluare.Loader)
+
+	print("adding module: 'yaml'")
 	l.PreloadModule("yaml", gluayaml.Loader)
 
+	print("adding module: 'url'")
 	l.PreloadModule("url", gluaurl.Loader)
+
+	print("adding module: 'xmlpath'")
 	gluaxmlpath.Preload(l)
 
+	print("adding module: 'gjson'")
 	gjson.Preload(l)
+
+	print("adding module: 'http'")
 	l.PreloadModule("http", gluahttp.NewHttpModule(&http.Client{}).Loader)
 
+	print("creating root table: '" + name + "'")
 	l.SetGlobal(name, l.NewTable())
+
+	print("parsing globals")
 	for _, global := range globals {
+		print(fmt.Sprintf("adding global %s=>%s", global.GetKey(), global.GetValue()))
 		l.SetGlobal(global.GetKey(), global.GetValue())
 	}
 
+	print(fmt.Sprintf("running file: %s", filename))
 	if err := l.DoFile(filename); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &App{
 		state: l,
 		name:  name,
+		print: print,
 	}, nil
 }
 
 // Cleanup closes and cleans up the lua VM, this must be
 // called when all interaction with the config app is complete
 func (a *App) Cleanup() {
+	a.print("cleaning up")
 	a.state.Close()
 }
 
@@ -80,10 +120,25 @@ func (a *App) GetGlobal(key string, mapping interface{}) error {
 		return errors.New("input mapping must be a pointer")
 	}
 
+	a.print(fmt.Sprintf("mapping global: %s to provided mapping", key))
 	if err := gluamapper.Map(a.state.GetGlobal(key).(*lua.LTable), mapping); err != nil {
-		panic(err)
+		return err
 	}
 	return nil
+}
+
+func (a *App) digg(parent string, code *string, object reflect.Type) {
+	for i := 0; i < object.NumField(); i++ {
+		typ := object.Field(i).Type
+		kind := typ.Kind()
+
+		// need to check for objects inside this object
+		if kind == reflect.Struct || kind == reflect.Map {
+			name := snaker.CamelToSnake(object.Field(i).Name)
+			*code += fmt.Sprintf("%s.%s = {}\n", parent, name)
+			a.digg(parent+"."+name, code, typ)
+		}
+	}
 }
 
 // ParseFunction runs the method by provided method name, app name and maps
@@ -97,29 +152,29 @@ func (a *App) ParseFunction(method string, mapping interface{}) error {
 	}
 
 	configObj := fmt.Sprintf("__boost__%s_%s__boost__", a.name, method)
-	l.SetGlobal(configObj, l.NewTable())
+	a.print(fmt.Sprintf("creating config passthru object: %s", configObj))
 
-	mappingType := reflect.ValueOf(mapping).Type().Elem()
-	for i := 0; i < mappingType.NumField(); i++ {
-		typ := mappingType.Field(i).Type.Kind()
+	bootstrapStr := fmt.Sprintf("%s = {}\n", configObj)
+	a.digg(configObj, &bootstrapStr, reflect.ValueOf(mapping).Type().Elem())
 
-		// need to check for objects inside this object
-		if typ == reflect.Struct || typ == reflect.Map {
-			name := mappingType.Field(i).Name
-			l.GetGlobal(configObj).(*lua.LTable).RawSetString(strings.ToLower(name), l.NewTable())
-		}
+	a.print(fmt.Sprintf("adding mapping bootstrap tables: \n%s", bootstrapStr))
+	err := l.DoString(bootstrapStr)
+	if err != nil {
+		return err
 	}
 
+	a.print(fmt.Sprintf("calling method: %s.%s(%s)", a.name, method, configObj))
 	if err := l.CallByParam(lua.P{
 		Fn:      l.GetGlobal(a.name).(*lua.LTable).RawGetString(method),
 		NRet:    0,
 		Protect: true,
 	}, l.GetGlobal(configObj)); err != nil {
-		panic(err)
+		return err
 	}
 
+	a.print("mapping passthru object to mapping")
 	if err := gluamapper.Map(l.GetGlobal(configObj).(*lua.LTable), mapping); err != nil {
-		panic(err)
+		return err
 	}
 
 	return nil

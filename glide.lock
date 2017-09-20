@@ -1,8 +1,23 @@
 hash: 30f8e730596188dfa6bfbad91f67bc1cc41583d192df49aa16ed18d9d633a4c1
-updated: 2017-09-18T21:50:00.800202992-04:00
+updated: 2017-09-19T21:09:31.752143753-04:00
 imports:
 - name: github.com/ailncode/gluaxmlpath
   version: 6ce478ecb4a60c4fc8929838e0b21b7fb7ca7440
+- name: github.com/BixData/gluasocket
+  version: fb91e4de620e2ae6034133e55ffbae46e8c10bb2
+  subpackages:
+  - ltn12
+  - mime
+  - mimecore
+  - socket
+  - socketcore
+  - socketexcept
+  - socketftp
+  - socketheaders
+  - sockethttp
+  - socketsmtp
+  - sockettp
+  - socketurl
 - name: github.com/cjoudrey/gluahttp
   version: b4bfe0c50fea948dcbf3966e120996d6607bbd89
 - name: github.com/cjoudrey/gluaurl
@@ -11,6 +26,13 @@ imports:
   version: 6fe413d49d73d785510ecf1529991ab0573e96c7
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
+- name: github.com/rs/zerolog
+  version: 2ed2f2c974489526d10329dae76d0f175684109a
+  subpackages:
+  - internal/json
+  - log
+- name: github.com/serenize/snaker
+  version: 1c7f65329f6524115af8ca01ab604c00cddf5558
 - name: github.com/yuin/gluamapper
   version: d836955830e75240d46ce9f0e6d148d94f2e1d3a
 - name: github.com/yuin/gluare
@@ -32,4 +54,6 @@ imports:
   version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
 - name: layeh.com/gopher-json
   version: c128cc74278be889c4381681712931976fe0d88b
+- name: layeh.com/gopher-lfs
+  version: 023c51c79dfa6bc42efcb50a3d49bf755483312b
 testImports: []
