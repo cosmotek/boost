@@ -1,0 +1,10 @@
+package: github.com/rucuriousyet/boost
+import:
+- package: github.com/ailncode/gluaxmlpath
+- package: github.com/cjoudrey/gluahttp
+- package: github.com/cjoudrey/gluaurl
+- package: github.com/kohkimakimoto/gluayaml
+- package: github.com/yuin/gluamapper
+- package: github.com/yuin/gluare
+- package: github.com/yuin/gopher-lua
+- package: layeh.com/gopher-json
