@@ -1,0 +1,60 @@
+#!/usr/bin/env lua
+-- if your configuration file doesn't include a .lua extension,
+-- consider using the provided shebang above in your
+-- configuration file to help editors/ides autodetect the file
+-- type and enable lua syntax highlighting
+
+-- this file is a simple example showing some of the things
+-- that can be done with boost lua config files. the below
+-- example is a pseudo script similar to a make file for a
+-- go project and is for demo purposes only.
+
+-- just to show that you can, here's a custom module... make
+-- to use the .lua extension for any custom modules or boost
+-- wont import them correctly
+local semver = require("demo.semver")
+
+-- another demo module, this one provides a helper for reading
+-- the contents of a file as a string
+local fs = require("demo.fs")
+local str = require("demo.str")
+
+-- figured I would name the project after an old idea of mine
+Flux.buildconf = function(build)
+  original_version = fs.readstr(".ci/semver")
+  build.version = semver.bump(original_version, semver.patch)
+
+  if not immutable_env then
+    fs.writestr(".ci/semver", build.version)
+  end
+
+  build.hash = str.random(6)
+  build.name = "geo-api-docker"
+
+  build.destination = "/bin"
+  build.entrypoint = "geo-api.go"
+
+  -- expects yaml
+  build.dry_run.type = docker_compose
+  build.dry_run.config = fs.readstr("docker-compose.yaml")
+
+  if destination == "release" then
+    build.env_tag = "stage"
+  elseif destination == "master" then
+    build.env_tag = "prod"
+  end
+
+  build.upload = os.getenv("PROD")
+
+  if manual_exec then
+    os.execute("go build ...")
+    os.execute("docker build -t ...")
+  end
+end
+
+-- these are just some global values for reference
+job = {
+  type = "build",
+  preference = "speed",
+  target = "linux"
+}
