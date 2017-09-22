@@ -3,7 +3,7 @@
 
 Scripted Lua configuration for Go!
 
-[![boosters](https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/020408_STS110_Atlantis_launch.jpg/1158px-020408_STS110_Atlantis_launch.jpg)]
+![boosters](https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/020408_STS110_Atlantis_launch.jpg/1158px-020408_STS110_Atlantis_launch.jpg)
 
 Boost is a simple (and somewhat fast) configuration/bootstrapping file engine designed to make script-based configurations dead simple. Using Boost, Applications can interface with a simple Lua program, mapping data from said program to the map or struct of choice. Boost was somewhat inspired the Vagrantfile used by Hashicorp's Vagrant as well as the makefile and Caddyfile. Boost was created to fill the need for a dynamic configuration system that could be used in the Stackmesh daemon, sandbox, cli tool etc. Additionally, I came up with the early concept of Boost when working on a app packaging tool I call Shuttle.
 
