@@ -5,13 +5,13 @@ Scripted Lua configuration for Go!
 
 ![boosters](https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/020408_STS110_Atlantis_launch.jpg/1158px-020408_STS110_Atlantis_launch.jpg)
 
-Boost is a simple (and somewhat fast) configuration/bootstrapping file engine designed to make script-based configurations dead simple. Using Boost, Applications can interface with a simple Lua program, mapping data from said program to the map or struct of choice. Boost was somewhat inspired the Vagrantfile used by Hashicorp's Vagrant as well as the makefile and Caddyfile. Boost was created to fill the need for a dynamic configuration system that could be used in the Stackmesh daemon, sandbox, cli tool etc. Additionally, I came up with the early concept of Boost when working on a app packaging tool I call Shuttle.
+Boost is a simple configuration engine driven by Lua scripts.
 
 ## Install
 This package is go get-able so I'm sure you know what to do...
 (but just in case you don't ↲)
 
-`go get github.com/rucuriousyet/boost`
+`go get github.com/cosmotek/boost`
 
 ## Example
 In addition to the example below, I've included an much more detailed example in the `examples` folder.
@@ -44,8 +44,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/rucuriousyet/boost"
-	"github.com/rucuriousyet/boost/types"
+	"github.com/cosmotek/boost"
+	"github.com/cosmotek/boost/types"
 )
 
 type Configuration struct {
@@ -60,7 +60,7 @@ func main() {
 	conf, err := boost.NewAppConfig(
 		"MyApp",
 		"example.conf",
-    // enabled debug logging
+    		// enabled debug logging
 		true,
 		types.NewString("name", "seth"),
 	)
@@ -98,4 +98,4 @@ Special Thanks to the creator of https://github.com/yuin/gopher-lua which this l
 
 ## Contribution and maintenance
 
-This library is currently under active development alongside Stackmesh. Please note that Boost has not yet been fully tested, be careful when using this library for anything in sensitive environments. If you would like to make a suggestion or report a bug, please feel free to submit a PR or issue. I really hope you enjoy using Boost! Thanks!
+While Boost has been tested in small apps, be careful when using this library for anything in sensitive environments. If you would like to make a suggestion or report a bug, please feel free to submit a PR or issue. I really hope you enjoy using Boost! Thanks!
